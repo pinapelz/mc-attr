@@ -124,6 +124,8 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             if not is_weekend:
                 seconds_remaining = PLAY_LIMIT.total_seconds() - sessions[player]["playtime"]
                 pretty_time_str = str(timedelta(seconds=int(max(0, seconds_remaining))))
+                if seconds_remaining <= 0 or sessions[player]["banned"] is True:
+                    send_message(player, "You are not welcome. Please come back tomorrow")
                 send_message(player, f"Welcome! Playtime tracking has started. You have {pretty_time_str} remaining today.")
             else:
                 send_message(player, "Welcome! Its the weekend, there are currently no playtime restrictions")
@@ -177,8 +179,8 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             # Ban and reset
             if data["playtime"] >= PLAY_LIMIT.total_seconds() and not data.get("banned", False):
                 time_limit_hours = PLAY_LIMIT.total_seconds() // 3600
-                send_message(None, f"{player} has reached the {time_limit_hours}-hour limit! Banning and resetting session.")
-                run_command(f"ban {player} Reached {time_limit_hours}-hour limit")
+                send_message(None, f"{player} has reached the {time_limit_hours}-hour playtime limit! See you tomorrow buddy")
+                run_command(f"ban {player} Reached {time_limit_hours}-hour limit. Resets at midnight")
                 data["banned"] = True
                 data["session_start"] = dt_to_iso(now)
                 data["playtime"] = 0
