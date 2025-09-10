@@ -89,7 +89,7 @@ def managed_session_manager(server_name):
             if last_state == 1:
                 print(f"[INFO] Server '{server_name}' is offline. Pausing session tracking.")
             last_state = 0
-        time.sleep(30)  # check every 30s if server status changed
+        time.sleep(60)  # check every 60s if server status changed
 
 
 if __name__ == "__main__":
