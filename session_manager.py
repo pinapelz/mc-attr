@@ -57,16 +57,6 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     """
     global weekend_unlimited_announced
     load_sessions()
-
-    if get_online_players is None:
-        get_online_players = lambda: []
-
-    if send_message is None:
-        send_message = lambda player, msg: print(f"{player or 'ALL'}: {msg}")
-
-    if run_command is None:
-        run_command = lambda cmd: None
-
     now = datetime.now()
     today_str = now.date().isoformat()
     online_players = get_online_players()
@@ -95,8 +85,10 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
         if player in sessions:
             # Daily reset
             if sessions[player].get("session_date") != today_str:
+                # Unused time gets rolled over to the next day
+                delta_remaining = PLAY_LIMIT.total_seconds() - data["playtime"]
                 sessions[player]["session_start"] = dt_to_iso(now)
-                sessions[player]["playtime"] = 0
+                sessions[player]["playtime"] = -delta_remaining
                 sessions[player]["online"] = True
                 sessions[player]["session_date"] = today_str
                 for k in sessions[player]["announcements"]:
@@ -119,7 +111,11 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
         last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
         delta = (now - last_checked).total_seconds()
         if sessions[player].get("online", False):
-            sessions[player]["playtime"] += delta
+            if sessions[player]["banned"]:
+                print([f"{player} is BAN EVADING!"])
+                run_command(f"ban {player} really? thought you could get away with it that easily?")
+            else:
+                sessions[player]["playtime"] += delta
         sessions[player]["online"] = True
         sessions[player]["last_checked"] = dt_to_iso(now)
 
@@ -132,23 +128,40 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     if not is_weekend:
         for player, data in sessions.items():
             remaining = PLAY_LIMIT.total_seconds() - data["playtime"]
+            print(f"[{player}] Max playtime: {PLAY_LIMIT}, Time remaining: {timedelta(seconds=max(0, remaining))}")
+            time_limit_hours = PLAY_LIMIT.total_seconds() // 3600
+            time_limit_text = f"{int(time_limit_hours)}-hour limit"
 
-            # Announcements
-            if remaining <= 60 and not data["announcements"]["1min"]:
-                send_message(None, f"{player} has 1 minute left before reaching the 3-hour limit!")
-                data["announcements"]["1min"] = True
-            elif remaining <= 300 and not data["announcements"]["5min"]:
-                send_message(None, f"{player} has around 5 minutes left before reaching the 3-hour limit!")
-                data["announcements"]["5min"] = True
-            elif remaining <= 600 and not data["announcements"]["10min"]:
-                send_message(None, f"{player} has around 10 minutes left before reaching the 3-hour limit!")
-                data["announcements"]["10min"] = True
-            elif remaining <= 900 and not data["announcements"]["15min"]:
-                send_message(None, f"{player} has around 15 minutes left before reaching the 3-hour limit!")
-                data["announcements"]["15min"] = True
-            elif remaining <= 1800 and not data["announcements"]["30min"]:
-                send_message(None, f"{player} has around 30 minutes left before reaching the 3-hour limit!")
-                data["announcements"]["30min"] = True
+            def pretty_time(seconds):
+                td = timedelta(seconds=int(max(0, seconds)))
+                parts = []
+                if td.days > 0:
+                    parts.append(f"{td.days}d")
+                hours, rem = divmod(td.seconds, 3600)
+                if hours > 0:
+                    parts.append(f"{hours}h")
+                minutes, seconds = divmod(rem, 60)
+                if minutes > 0:
+                    parts.append(f"{minutes}m")
+                if seconds > 0 and not parts:
+                    parts.append(f"{seconds}s")
+                return " ".join(parts) if parts else "0s"
+
+            thresholds = [
+                (60, "1min"),
+                (300, "5min"),
+                (600, "10min"),
+                (900, "15min"),
+                (1800, "30min"),
+            ]
+            for threshold, label in thresholds:
+                if remaining <= threshold and not data["announcements"][label]:
+                    send_message(
+                        None,
+                        f"{player} has {pretty_time(remaining)} left before reaching the {time_limit_text}!"
+                    )
+                    data["announcements"][label] = True
+                    break
 
             # Ban and reset
             if data["playtime"] >= PLAY_LIMIT.total_seconds() and not data.get("banned", False):
