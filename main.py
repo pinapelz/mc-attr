@@ -32,7 +32,7 @@ def server_is_online(server_name: str) -> bool:
     servers = exa.get_servers()
     for server in servers:
         if server.name == server_name:
-            return server.status != "Offline"
+            return server.status == "Online"
     return False
 
 
