@@ -110,12 +110,20 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
         # Update playtime (only while online!)
         last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
         delta = (now - last_checked).total_seconds()
-        if sessions[player].get("online", False):
+        is_online = sessions[player].get("online", False)
+        if is_online:
             if sessions[player]["banned"]:
                 print([f"{player} is BAN EVADING!"])
                 run_command(f"ban {player} really? thought you could get away with it that easily?")
             else:
                 sessions[player]["playtime"] += delta
+            if not is_online and not is_weekend: # Player just got on. Welcome them
+                seconds_remaining = PLAY_LIMIT.total_seconds() - sessions[player]["playtime"]
+                pretty_time_str = str(timedelta(seconds=int(max(0, seconds_remaining))))
+                send_message(player, f"Welcome! Playtime tracking has started. You have {pretty_time_str} remaining today.")
+            else:
+                send_message(player, "Welcome! Its the weekend, there are currently no playtime restrictions")
+
         sessions[player]["online"] = True
         sessions[player]["last_checked"] = dt_to_iso(now)
 
