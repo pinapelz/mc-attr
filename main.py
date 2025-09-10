@@ -13,27 +13,36 @@ SERVER_NAME = os.environ.get("SERVER_NAME")
 
 
 def get_server_id(server_name: str) -> str:
-    servers = exa.get_servers()
-    for server in servers:
-        if server.name == server_name:
-            return server.id
-    return ""
+    try:
+        servers = exa.get_servers()
+        for server in servers:
+            if server.name == server_name:
+                return server.id
+        return ""
+    except Exception:
+        return ""
 
 
 def get_server_online_players(server_name: str) -> list:
-    servers = exa.get_servers()
-    for server in servers:
-        if server.name == server_name:
-            return server.players.list
-    return []
+    try:
+        servers = exa.get_servers()
+        for server in servers:
+            if server.name == server_name:
+                return server.players.list
+        return []
+    except Exception:
+        return []
 
 
 def server_is_online(server_name: str) -> bool:
-    servers = exa.get_servers()
-    for server in servers:
-        if server.name == server_name:
-            return server.status == "Online"
-    return False
+    try:
+        servers = exa.get_servers()
+        for server in servers:
+            if server.name == server_name:
+                return server.status == "Online"
+        return False
+    except Exception:
+        return False
 
 
 def send_tell(server_name: str, player: str, message: str):
