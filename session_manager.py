@@ -86,9 +86,9 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             # Daily reset
             if sessions[player].get("session_date") != today_str:
                 # Unused time gets rolled over to the next day
-                delta_remaining = PLAY_LIMIT.total_seconds() - data["playtime"]
+                # delta_remaining = PLAY_LIMIT.total_seconds() - data["playtime"]
                 sessions[player]["session_start"] = dt_to_iso(now)
-                sessions[player]["playtime"] = -delta_remaining
+                sessions[player]["playtime"] = 0
                 sessions[player]["online"] = True
                 sessions[player]["session_date"] = today_str
                 for k in sessions[player]["announcements"]:
