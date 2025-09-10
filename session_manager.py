@@ -173,8 +173,9 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
 
             # Ban and reset
             if data["playtime"] >= PLAY_LIMIT.total_seconds() and not data.get("banned", False):
-                send_message(None, f"{player} has reached the 3-hour limit! Banning and resetting session.")
-                run_command(f"ban {player} Reached 3-hour limit")
+                time_limit_hours = PLAY_LIMIT.total_seconds() // 3600
+                send_message(None, f"{player} has reached the {time_limit_hours}-hour limit! Banning and resetting session.")
+                run_command(f"ban {player} Reached {time_limit_hours}-hour limit")
                 data["banned"] = True
                 data["session_start"] = dt_to_iso(now)
                 data["playtime"] = 0
