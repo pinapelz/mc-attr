@@ -231,4 +231,4 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                     data["announcements"][k] = False
 
     save_sessions()
-    time.sleep(5)  # pause until next cycle
+    time.sleep(60)  # pause until next cycle
