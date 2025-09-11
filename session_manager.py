@@ -91,6 +91,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 sessions[player]["playtime"] = 0
                 sessions[player]["online"] = True
                 sessions[player]["session_date"] = today_str
+                sessions[player]["last_checked"] = dt_to_iso(now)
                 for k in sessions[player]["announcements"]:
                     sessions[player]["announcements"][k] = False
                 if sessions[player].get("banned"):
