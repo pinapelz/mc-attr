@@ -42,6 +42,7 @@ def initialize_players(player_list):
             sessions[player] = {
                 "session_start": now_str,
                 "playtime": 0,
+                "rollover_time": 0,  # unused time from previous days
                 "online": True,
                 "session_date": today_str,
                 "banned": False,
@@ -73,6 +74,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
 
         for player, data in sessions.items():
             data["playtime"] = 0
+            data["rollover_time"] = 0  # clear rollover when weekend ends
             data["session_start"] = dt_to_iso(now)
             data["online"] = True
             data["banned"] = False
@@ -85,8 +87,29 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
         if player in sessions:
             # Daily reset
             if sessions[player].get("session_date") != today_str:
-                # Unused time gets rolled over to the next day
-                # delta_remaining = PLAY_LIMIT.total_seconds() - data["playtime"]
+                # Calculate unused time and add to rollover (but not on weekends)
+                yesterday_weekday = (now - timedelta(days=1)).weekday()
+                if yesterday_weekday < 5:  # only rollover from weekdays
+                    current_rollover = sessions[player].get("rollover_time", 0)
+                    yesterday_playtime = sessions[player]["playtime"]
+                    unused_time = max(0, PLAY_LIMIT.total_seconds() - yesterday_playtime)
+
+                    # Clear rollover if today is Friday (before weekend)
+                    if weekday == 4:  # Friday
+                        sessions[player]["rollover_time"] = 0
+                        if unused_time > 0:
+                            unused_hours = unused_time / 3600
+                            send_message(player, f"Note: {unused_hours:.1f} hours of unused time expired before the weekend.")
+                    else:
+                        sessions[player]["rollover_time"] = current_rollover + unused_time
+                        if unused_time > 0:
+                            unused_hours = unused_time / 3600
+                            total_rollover_hours = (current_rollover + unused_time) / 3600
+                            send_message(player, f"You had {unused_hours:.1f} hours of unused time yesterday. Total rollover: {total_rollover_hours:.1f} hours.")
+                else:
+                    # Don't rollover weekend time
+                    sessions[player]["rollover_time"] = sessions[player].get("rollover_time", 0)
+
                 sessions[player]["session_start"] = dt_to_iso(now)
                 sessions[player]["playtime"] = 0
                 sessions[player]["online"] = True
@@ -102,6 +125,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             sessions[player] = {
                 "session_start": dt_to_iso(now),
                 "playtime": 0,
+                "rollover_time": 0,
                 "online": True,
                 "session_date": today_str,
                 "banned": False,
@@ -123,11 +147,18 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
         else:
             # First login, send welcome message
             if not is_weekend:
-                seconds_remaining = PLAY_LIMIT.total_seconds() - sessions[player]["playtime"]
+                rollover_time = sessions[player].get("rollover_time", 0)
+                total_limit = PLAY_LIMIT.total_seconds() + rollover_time
+                seconds_remaining = total_limit - sessions[player]["playtime"]
                 pretty_time_str = str(timedelta(seconds=int(max(0, seconds_remaining))))
                 if seconds_remaining <= 0 or sessions[player]["banned"] is True:
                     send_message(player, "You are not welcome. Please come back tomorrow")
-                send_message(player, f"Welcome! Playtime tracking has started. You have {pretty_time_str} remaining today.")
+                else:
+                    welcome_msg = f"Welcome! Playtime tracking has started. You have {pretty_time_str} remaining today."
+                    if rollover_time > 0:
+                        rollover_hours = rollover_time / 3600
+                        welcome_msg += f" (includes {rollover_hours:.1f} hours carried over from previous days)"
+                    send_message(player, welcome_msg)
             else:
                 send_message(player, "Welcome! Its the weekend, there are currently no playtime restrictions")
 
@@ -141,10 +172,15 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     # --- Enforce weekday limits ---
     if not is_weekend:
         for player, data in sessions.items():
-            remaining = PLAY_LIMIT.total_seconds() - data["playtime"]
-            print(f"[{player}] Max playtime: {PLAY_LIMIT}, Time remaining: {timedelta(seconds=max(0, remaining))}")
-            time_limit_hours = PLAY_LIMIT.total_seconds() // 3600
-            time_limit_text = f"{int(time_limit_hours)}-hour limit"
+            rollover_time = data.get("rollover_time", 0)
+            total_limit = PLAY_LIMIT.total_seconds() + rollover_time
+            remaining = total_limit - data["playtime"]
+            base_hours = PLAY_LIMIT.total_seconds() // 3600
+            if rollover_time > 0:
+                print(f"[{player}] Base limit: {PLAY_LIMIT}, Rollover: {timedelta(seconds=rollover_time)}, Total limit: {timedelta(seconds=total_limit)}, Time remaining: {timedelta(seconds=max(0, remaining))}")
+            else:
+                print(f"[{player}] Max playtime: {PLAY_LIMIT}, Time remaining: {timedelta(seconds=max(0, remaining))}")
+            time_limit_text = f"{int(base_hours)}-hour limit" + (f" (+{rollover_time/3600:.1f}h rollover)" if rollover_time > 0 else "")
 
             def pretty_time(seconds):
                 td = timedelta(seconds=int(max(0, seconds)))
@@ -178,10 +214,15 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                     break
 
             # Ban and reset
-            if data["playtime"] >= PLAY_LIMIT.total_seconds() and not data.get("banned", False):
-                time_limit_hours = PLAY_LIMIT.total_seconds() // 3600
-                send_message(None, f"{player} has reached the {time_limit_hours}-hour playtime limit! See you tomorrow buddy")
-                run_command(f"ban {player} Reached {time_limit_hours}-hour limit. Resets at midnight")
+            rollover_time = data.get("rollover_time", 0)
+            total_limit = PLAY_LIMIT.total_seconds() + rollover_time
+            if data["playtime"] >= total_limit and not data.get("banned", False):
+                base_hours = PLAY_LIMIT.total_seconds() // 3600
+                limit_msg = f"{base_hours}-hour"
+                if rollover_time > 0:
+                    limit_msg += f" (+{rollover_time/3600:.1f}h rollover)"
+                send_message(None, f"{player} has reached the {limit_msg} playtime limit! See you tomorrow buddy")
+                run_command(f"ban {player} Reached playtime limit. Resets at midnight")
                 data["banned"] = True
                 data["session_start"] = dt_to_iso(now)
                 data["playtime"] = 0
