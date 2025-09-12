@@ -99,6 +99,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             data["playtime"] = 0
             data["session_date"] = today_str
             data["last_checked"] = dt_to_iso(now)
+            data["online"] = False
             for k in data["announcements"]:
                 data["announcements"][k] = False
 
