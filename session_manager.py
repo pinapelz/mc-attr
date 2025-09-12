@@ -64,6 +64,15 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     weekday = now.weekday()
     is_weekend = weekday >= 5  # Saturday=5, Sunday=6
 
+    # --- Daily reset for ALL players (including offline ones) ---
+    for player, data in sessions.items():
+        if data.get("session_date") != today_str:
+            # Unban ALL players on daily reset
+            if data.get("banned"):
+                run_command(f"pardon {player}")
+                data["banned"] = False
+                send_message(None, f"{player} has been unbanned for the new day.")
+
     # --- Handle weekend unlimited logic ---
     if is_weekend and not weekend_unlimited_announced:
         send_message(None, "Weekend unlimited playtime has started! Enjoy!")
@@ -119,10 +128,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 sessions[player]["last_checked"] = dt_to_iso(now)
                 for k in sessions[player]["announcements"]:
                     sessions[player]["announcements"][k] = False
-                if sessions[player].get("banned"):
-                    run_command(f"pardon {player}")
-                    sessions[player]["banned"] = False
-                    send_message(None, f"{player} is now unbanned and session reset for a new day.")
+                # Unbanning is now handled globally for all players above, no need to duplicate here
         else:
             sessions[player] = {
                 "session_start": dt_to_iso(now),
