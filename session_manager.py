@@ -67,6 +67,41 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     # --- Daily reset for ALL players (including offline ones) ---
     for player, data in sessions.items():
         if data.get("session_date") != today_str:
+            # Calculate unused time and add to rollover (but not on weekends)
+            yesterday_weekday = (now - timedelta(days=1)).weekday()
+            if yesterday_weekday < 5:  # only rollover from weekdays
+                current_rollover = data.get("rollover_time", 0)
+                yesterday_playtime = data["playtime"]
+                unused_time = max(0, PLAY_LIMIT.total_seconds() - yesterday_playtime)
+
+                # Clear rollover if today is Friday (before weekend)
+                if weekday == 4:  # Friday
+                    data["rollover_time"] = 0
+                    if unused_time > 0:
+                        unused_hours = unused_time / 3600
+                        # Only send message if player is online
+                        if player in online_players:
+                            send_message(player, f"Note: {unused_hours:.1f} hours of unused time expired before the weekend.")
+                else:
+                    data["rollover_time"] = current_rollover + unused_time
+                    if unused_time > 0:
+                        unused_hours = unused_time / 3600
+                        total_rollover_hours = (current_rollover + unused_time) / 3600
+                        # Only send message if player is online
+                        if player in online_players:
+                            send_message(player, f"You had {unused_hours:.1f} hours of unused time yesterday. Total rollover: {total_rollover_hours:.1f} hours.")
+            else:
+                # Don't rollover weekend time, but keep existing rollover
+                data["rollover_time"] = data.get("rollover_time", 0)
+
+            # Reset session data for the new day
+            data["session_start"] = dt_to_iso(now)
+            data["playtime"] = 0
+            data["session_date"] = today_str
+            data["last_checked"] = dt_to_iso(now)
+            for k in data["announcements"]:
+                data["announcements"][k] = False
+
             # Unban ALL players on daily reset
             if data.get("banned"):
                 run_command(f"pardon {player}")
@@ -96,39 +131,9 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     # --- Handle player sessions ---
     for player in online_players:
         if player in sessions:
-            # Daily reset
-            if sessions[player].get("session_date") != today_str:
-                # Calculate unused time and add to rollover (but not on weekends)
-                yesterday_weekday = (now - timedelta(days=1)).weekday()
-                if yesterday_weekday < 5:  # only rollover from weekdays
-                    current_rollover = sessions[player].get("rollover_time", 0)
-                    yesterday_playtime = sessions[player]["playtime"]
-                    unused_time = max(0, PLAY_LIMIT.total_seconds() - yesterday_playtime)
-
-                    # Clear rollover if today is Friday (before weekend)
-                    if weekday == 4:  # Friday
-                        sessions[player]["rollover_time"] = 0
-                        if unused_time > 0:
-                            unused_hours = unused_time / 3600
-                            send_message(player, f"Note: {unused_hours:.1f} hours of unused time expired before the weekend.")
-                    else:
-                        sessions[player]["rollover_time"] = current_rollover + unused_time
-                        if unused_time > 0:
-                            unused_hours = unused_time / 3600
-                            total_rollover_hours = (current_rollover + unused_time) / 3600
-                            send_message(player, f"You had {unused_hours:.1f} hours of unused time yesterday. Total rollover: {total_rollover_hours:.1f} hours.")
-                else:
-                    # Don't rollover weekend time
-                    sessions[player]["rollover_time"] = sessions[player].get("rollover_time", 0)
-
-                sessions[player]["session_start"] = dt_to_iso(now)
-                sessions[player]["playtime"] = 0
-                sessions[player]["online"] = True
-                sessions[player]["session_date"] = today_str
-                sessions[player]["last_checked"] = dt_to_iso(now)
-                for k in sessions[player]["announcements"]:
-                    sessions[player]["announcements"][k] = False
-                # Unbanning is now handled globally for all players above, no need to duplicate here
+            # Daily reset is now handled globally above for all players
+            # Just set online status for currently online players
+            sessions[player]["online"] = True
         else:
             sessions[player] = {
                 "session_start": dt_to_iso(now),
