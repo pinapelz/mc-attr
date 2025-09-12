@@ -134,14 +134,14 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     for player in online_players:
         if player in sessions:
             # Daily reset is now handled globally above for all players
-            # Just set online status for currently online players
-            sessions[player]["online"] = True
+            # Don't set online status here - it will be set after checking was_online
+            pass
         else:
             sessions[player] = {
                 "session_start": dt_to_iso(now),
                 "playtime": 0,
                 "rollover_time": 0,
-                "online": True,
+                "online": False,  # Start as offline so first login detection works
                 "session_date": today_str,
                 "banned": False,
                 "announcements": {k: False for k in ["1min", "5min", "10min", "15min", "30min"]}
