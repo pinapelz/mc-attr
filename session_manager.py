@@ -123,7 +123,8 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             data["playtime"] = 0
             data["rollover_time"] = 0  # clear rollover when weekend ends
             data["session_start"] = dt_to_iso(now)
-            data["online"] = True
+            data["online"] = False
+            data["last_checked"] = dt_to_iso(now)
             data["banned"] = False
             for k in data["announcements"]:
                 data["announcements"][k] = False
@@ -149,17 +150,18 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
         # Detect first login (transition from offline to online)
         was_online = sessions[player].get("online", False)
         sessions[player]["online"] = True  # Set online status for this cycle
-        last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
-        delta = (now - last_checked).total_seconds()
+
         if was_online:
-            # Already online, just update playtime
+            # Already online, calculate and update playtime
+            last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
+            delta = (now - last_checked).total_seconds()
             if sessions[player]["banned"]:
                 print([f"{player} is BAN EVADING!"])
                 run_command(f"ban {player} really? thought you could get away with it that easily?")
             else:
                 sessions[player]["playtime"] += delta
         else:
-            # First login, send welcome message
+            # First login, don't add any delta time
             run_command(f"/title {player} title {{\"text\":\"Welcome! ATTR is active\",\"color\":\"green\",\"bold\":true}}")
             if not is_weekend:
                 rollover_time = sessions[player].get("rollover_time", 0)
@@ -243,6 +245,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 data["banned"] = True
                 data["session_start"] = dt_to_iso(now)
                 data["playtime"] = 0
+                data["last_checked"] = dt_to_iso(now)  # Update last_checked to prevent phantom time
                 data["online"] = False
                 for k in data["announcements"]:
                     data["announcements"][k] = False
