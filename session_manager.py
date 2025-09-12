@@ -8,6 +8,7 @@ PLAY_LIMIT = timedelta(hours=3)  # normal weekday limit
 
 sessions = {}
 weekend_unlimited_announced = False  # global weekend announcement flag
+first_cycle = True  # Track if this is the first cycle after startup
 
 
 def load_sessions():
@@ -56,8 +57,19 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     One cycle of session management (called repeatedly while server is online).
     Pauses automatically when server is offline because `main` controls execution.
     """
-    global weekend_unlimited_announced
+    global weekend_unlimited_announced, first_cycle
     load_sessions()
+    
+    # Handle first cycle after program restart
+    if first_cycle:
+        now_str = dt_to_iso(datetime.now())
+        for player, data in sessions.items():
+            # Reset online status to prevent phantom time from restart
+            data["online"] = False
+            # Update last_checked to current time to prevent delta issues
+            data["last_checked"] = now_str
+        save_sessions()
+        first_cycle = False
     now = datetime.now()
     today_str = now.date().isoformat()
     online_players = get_online_players()
