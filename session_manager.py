@@ -87,7 +87,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                     if unused_time > 0:
                         unused_hours = unused_time / 3600
                         total_rollover_hours = (current_rollover + unused_time) / 3600
-                        # Only send message if player is online
+                        # Only send messagfe if player is online
                         if player in online_players:
                             send_message(player, f"You had {unused_hours:.1f} hours of unused time yesterday. Total rollover: {total_rollover_hours:.1f} hours.")
             else:
@@ -162,7 +162,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 sessions[player]["playtime"] += delta
         else:
             # First login, don't add any delta time
-            run_command(f"/title {player} title {{\"text\":\"Welcome! ATTR is active\",\"color\":\"green\",\"bold\":true}}")
+            run_command(f"/title {player} title {{\"text\":\"ATTR is active\",\"color\":\"green\",\"bold\":true}}")
             if not is_weekend:
                 rollover_time = sessions[player].get("rollover_time", 0)
                 total_limit = PLAY_LIMIT.total_seconds() + rollover_time
@@ -240,7 +240,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 if rollover_time > 0:
                     limit_msg += f" (+{rollover_time/3600:.1f}h rollover)"
                 send_message(None, f"{player} has reached the {limit_msg} playtime limit! See you tomorrow buddy")
-                run_command(f"/title {player} title {{\"text\":\"BYE BYE. SEE YOU TOMORROW\",\"color\":\"red\",\"bold\":true}}")
+                run_command(f"/title {player} title {{\"text\":\"BYE BYE\",\"color\":\"red\",\"bold\":true}}")
                 run_command(f"ban {player} Reached playtime limit. Resets at midnight")
                 data["banned"] = True
                 data["session_start"] = dt_to_iso(now)
