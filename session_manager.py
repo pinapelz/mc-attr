@@ -67,9 +67,11 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     # --- Handle weekend unlimited logic ---
     if is_weekend and not weekend_unlimited_announced:
         send_message(None, "Weekend unlimited playtime has started! Enjoy!")
+        run_command("/title @a title {{\"text\":\"Its the weekend! Unlimited Playtime!\",\"color\":\"green\",\"bold\":true}}")
         weekend_unlimited_announced = True
     elif not is_weekend and weekend_unlimited_announced:
         send_message(None, "Weekend unlimited playtime has ended. Weekday limit resumed! Resetting all session times.")
+        run_command("/title @a title {{\"text\":\"Weekend Unlimited Playtime ENDED\",\"color\":\"red\",\"bold\":true}}")
         weekend_unlimited_announced = False
 
         for player, data in sessions.items():
@@ -146,6 +148,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 sessions[player]["playtime"] += delta
         else:
             # First login, send welcome message
+            run_command(f"/title {player} title {{\"text\":\"Welcome! ATTR is active\",\"color\":\"green\",\"bold\":true}}")
             if not is_weekend:
                 rollover_time = sessions[player].get("rollover_time", 0)
                 total_limit = PLAY_LIMIT.total_seconds() + rollover_time
@@ -210,6 +213,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                         None,
                         f"{player} has {pretty_time(remaining)} left before reaching the {time_limit_text}!"
                     )
+                    run_command(f"/title {player} title {{\"text\":\"{pretty_time(remaining)} Remaining!\",\"color\":\"red\",\"bold\":true}}")
                     data["announcements"][label] = True
                     break
 
@@ -222,6 +226,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 if rollover_time > 0:
                     limit_msg += f" (+{rollover_time/3600:.1f}h rollover)"
                 send_message(None, f"{player} has reached the {limit_msg} playtime limit! See you tomorrow buddy")
+                run_command(f"/title {player} title {{\"text\":\"BYE BYE. SEE YOU TOMORROW\",\"color\":\"red\",\"bold\":true}}")
                 run_command(f"ban {player} Reached playtime limit. Resets at midnight")
                 data["banned"] = True
                 data["session_start"] = dt_to_iso(now)
