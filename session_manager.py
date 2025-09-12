@@ -74,14 +74,14 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 yesterday_playtime = data["playtime"]
                 unused_time = max(0, PLAY_LIMIT.total_seconds() - yesterday_playtime)
 
-                # Clear rollover if today is Friday (before weekend)
-                if weekday == 4:  # Friday
+                # Clear rollover if today is Saturday (after Friday)
+                if weekday == 5:  # Saturday
                     data["rollover_time"] = 0
                     if unused_time > 0:
                         unused_hours = unused_time / 3600
                         # Only send message if player is online
                         if player in online_players:
-                            send_message(player, f"Note: {unused_hours:.1f} hours of unused time expired before the weekend.")
+                            send_message(player, f"Note: {unused_hours:.1f} hours of unused time expired entering the weekend.")
                 else:
                     data["rollover_time"] = current_rollover + unused_time
                     if unused_time > 0:
