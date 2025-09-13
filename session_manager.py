@@ -59,7 +59,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     """
     global weekend_unlimited_announced, first_cycle
     load_sessions()
-    
+
     # Handle first cycle after program restart
     if first_cycle:
         now_str = dt_to_iso(datetime.now())
@@ -143,6 +143,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             run_command(f"pardon {player}")
 
     # --- Handle player sessions ---
+    load_sessions()
     for player in online_players:
         if player in sessions:
             # Daily reset is now handled globally above for all players
@@ -167,7 +168,8 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             # Already online, calculate and update playtime
             last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
             delta = (now - last_checked).total_seconds()
-            if sessions[player]["banned"]:
+            # Only check for ban evading on weekdays (weekends have no restrictions)
+            if not is_weekend and sessions[player]["banned"]:
                 print([f"{player} is BAN EVADING!"])
                 run_command(f"ban {player} really? thought you could get away with it that easily?")
             else:
