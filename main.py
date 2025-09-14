@@ -5,6 +5,7 @@ import threading
 import time
 
 import session_manager
+import websocket_console
 
 load_dotenv()
 
@@ -84,7 +85,7 @@ def managed_session_manager(server_name):
         if server_is_online(server_name):
             last_state = 1
             print(f"[INFO] Server '{server_name}' is online. Session manager active.")
-            send_tell(server_name, None, "ATTR is now watching this server. GLHF (in moderation)")
+            # send_tell(server_name, None, "ATTR is now watching this server. GLHF (in moderation)")
             try:
                 while server_is_online(server_name):
                     session_manager.session_cycle(
@@ -114,6 +115,17 @@ if __name__ == "__main__":
         args=(SERVER_NAME,),
         daemon=True
     ).start()
+
+    # Start WebSocket console monitor thread
+    threading.Thread(
+        target=websocket_console.run_websocket_monitor,
+        args=(os.environ.get("API_KEY"), server_id),
+        daemon=True
+    ).start()
+
+    print("[INFO] WebSocket console monitor started. Console output will be printed to stdout.")
+    print("[INFO] Chat command monitoring active. Players can use: !help, !playtime, !rollover, !stats, !rules")
+    print("[INFO] Admin commands available: !adminhelp, !unban, !addtime, !settime, !resettime (for authorized admins only)")
 
     while True:  # placeholder for extra tasks
         time.sleep(10)

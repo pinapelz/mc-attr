@@ -176,7 +176,6 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 sessions[player]["playtime"] += delta
         else:
             # First login, don't add any delta time
-            run_command(f"/title {player} title {{\"text\":\"ATTR is active\",\"color\":\"green\",\"bold\":true}}")
             if not is_weekend:
                 rollover_time = sessions[player].get("rollover_time", 0)
                 total_limit = PLAY_LIMIT.total_seconds() + rollover_time
