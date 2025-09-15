@@ -4,6 +4,7 @@ import session_manager
 import json
 from pathlib import Path
 import subprocess
+import random
 
 
 class CommandHandler:
@@ -26,6 +27,21 @@ class CommandHandler:
         self.chat_pattern = re.compile(
             r'\[(\d{2}:\d{2}:\d{2})\] \[.*?/INFO\]: <([^>]+)> (.+)'
         )
+
+        # Gambling configuration
+        self.gambling_config = {
+            "house_edge": 0.15,
+            "multipliers": [
+                {"m": 1.05, "p": 0.8095238095238095},
+                {"m": 1.10, "p": 0.7727272727272727},
+                {"m": 1.25, "p": 0.68},
+                {"m": 1.50, "p": 0.5666666666666667},
+                {"m": 2.00, "p": 0.425},
+                {"m": 3.00, "p": 0.2833333333333333},
+                {"m": 5.00, "p": 0.17},
+                {"m": 10.00, "p": 0.085}
+            ]
+        }
 
         # Register default commands
         self._register_commands()
@@ -55,6 +71,7 @@ class CommandHandler:
             'rollover': self.cmd_rollover,
             'stats': self.cmd_stats,
             'rules': self.cmd_rules,
+            'gamble': self.cmd_gamble,
             # Admin commands
             'unban': self.cmd_unban,
             'addtime': self.cmd_addtime,
@@ -121,7 +138,7 @@ class CommandHandler:
             available_commands = ", ".join([f"!{cmd}" for cmd in sorted(self.commands.keys())])
             extra_msg = " (Admin commands included)"
         else:
-            non_admin_cmds = ['help', 'playtime', 'rollover', 'stats', 'rules', 'version']
+            non_admin_cmds = ['help', 'playtime', 'rollover', 'stats', 'rules', 'version', 'gamble']
             available_commands = ", ".join([f"!{cmd}" for cmd in sorted(non_admin_cmds)])
             extra_msg = ""
 
@@ -468,3 +485,174 @@ class CommandHandler:
         }
         self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
         print(f"[RESPONSE] Sent version info to {username}")
+
+    def cmd_gamble(self, username, args):
+        """Gamble command - allows players to gamble their remaining playtime"""
+        # Check if it's weekend (unlimited playtime)
+        weekday = datetime.now().weekday()
+        is_weekend = weekday >= 5
+
+        if is_weekend:
+            tellraw_json = {
+                "text": "",
+                "extra": [
+                    {"text": f"[{username}] ", "color": "gray"},
+                    {"text": "Gambling is disabled on weekends (unlimited playtime)!", "color": "red", "bold": True}
+                ]
+            }
+            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            return
+
+        # Load session data
+        session_manager.load_sessions()
+        sessions = session_manager.sessions
+
+        if username not in sessions:
+            self.send_command(f"tell {username} No session data found. Play for a bit first!")
+            return
+
+        data = sessions[username]
+        rollover_time = data.get("rollover_time", 0)
+        total_limit = session_manager.PLAY_LIMIT.total_seconds() + rollover_time
+        remaining = total_limit - data["playtime"]
+
+        # Check if player has at least 5 minutes remaining
+        min_time_required = 5 * 60  # 5 minutes in seconds
+        if remaining < min_time_required:
+            minutes = int(remaining // 60)
+            tellraw_json = {
+                "text": "",
+                "extra": [
+                    {"text": f"[{username}] ", "color": "gray"},
+                    {"text": f"You need at least 5 minutes remaining to gamble. You have {minutes}m left.", "color": "red", "bold": True}
+                ]
+            }
+            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            return
+
+        # Parse arguments
+        if len(args) < 2:
+            # Show gambling options
+            tellraw_json = {
+                "text": "",
+                "extra": [
+                    {"text": f"[{username}] ", "color": "gray"},
+                    {"text": "Usage: !gamble <minutes> <multiplier>", "color": "white"},
+                    {"text": "\nAvailable multipliers: ", "color": "yellow"}
+                ]
+            }
+
+            # Add multiplier options
+            for i, mult in enumerate(self.gambling_config["multipliers"]):
+                if i > 0:
+                    tellraw_json["extra"].append({"text": ", ", "color": "white"})
+                tellraw_json["extra"].append({
+                    "text": f"{mult['m']}x ({mult['p']*100:.1f}%)",
+                    "color": "gold"
+                })
+
+            tellraw_json["extra"].append({"text": f"\nYou have {int(remaining//60)}m {int(remaining%60)}s available", "color": "aqua"})
+            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            return
+
+        try:
+            bet_minutes = int(args[0])
+            multiplier = float(args[1])
+        except ValueError:
+            self.send_command(f"tell {username} Invalid arguments. Use: !gamble <minutes> <multiplier>")
+            return
+
+        # Validate bet amount
+        bet_seconds = bet_minutes * 60
+        if bet_seconds > remaining:
+            tellraw_json = {
+                "text": "",
+                "extra": [
+                    {"text": f"[{username}] ", "color": "gray"},
+                    {"text": f"You can't bet {bet_minutes}m - you only have {int(remaining//60)}m {int(remaining%60)}s!", "color": "red", "bold": True}
+                ]
+            }
+            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            return
+
+        if bet_minutes < 5:
+            self.send_command(f"tell {username} Minimum bet is 5 minutes!")
+            return
+
+        # Find matching multiplier configuration
+        mult_config = None
+        for mult in self.gambling_config["multipliers"]:
+            if abs(mult["m"] - multiplier) < 0.001:  # Float comparison with tolerance
+                mult_config = mult
+                break
+
+        if mult_config is None:
+            available_mults = ", ".join([str(m["m"]) for m in self.gambling_config["multipliers"]])
+            self.send_command(f"tell {username} Invalid multiplier! Available: {available_mults}")
+            return
+
+        # Perform the gamble
+        win_chance = mult_config["p"]
+        roll = random.random()
+        won = roll < win_chance
+
+        if won:
+            # Player wins
+            winnings = int(bet_seconds * (multiplier - 1))  # Profit only
+            new_rollover = rollover_time + winnings
+            sessions[username]["rollover_time"] = new_rollover
+
+            tellraw_json = {
+                "text": "",
+                "extra": [
+                    {"text": f"[GAMBLE] ", "color": "gold", "bold": True},
+                    {"text": f"{username} ", "color": "yellow"},
+                    {"text": "WON ", "color": "green", "bold": True},
+                    {"text": f"{int(winnings//60)}m {int(winnings%60)}s ", "color": "green"},
+                    {"text": f"(bet {bet_minutes}m at {multiplier}x)! 🎉", "color": "white"}
+                ]
+            }
+
+            # Show title to the winner
+            self.send_command(f'title {username} title {{"text":"🎉 JACKPOT! 🎉","color":"gold","bold":true}}')
+            self.send_command(f'title {username} subtitle {{"text":"Won {int(winnings//60)}m {int(winnings%60)}s!","color":"green","bold":true}}')
+
+            # Send result to everyone
+            self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+
+            print(f"[GAMBLE] {username} won {winnings/60:.1f}m betting {bet_minutes}m at {multiplier}x (roll: {roll:.4f}, needed: <{win_chance:.4f})")
+        else:
+            # Player loses - deduct from rollover first, then from remaining time
+            if rollover_time >= bet_seconds:
+                # Deduct from rollover only
+                sessions[username]["rollover_time"] = rollover_time - bet_seconds
+            else:
+                # Deduct remaining rollover, then add to playtime
+                sessions[username]["rollover_time"] = 0
+                loss_from_playtime = bet_seconds - rollover_time
+                sessions[username]["playtime"] += loss_from_playtime
+
+            tellraw_json = {
+                "text": "",
+                "extra": [
+                    {"text": f"[GAMBLE] ", "color": "gold", "bold": True},
+                    {"text": f"{username} ", "color": "yellow"},
+                    {"text": "LOST ", "color": "red", "bold": True},
+                    {"text": f"{bet_minutes}m ", "color": "red"},
+                    {"text": f"(bet at {multiplier}x) 💸", "color": "white"}
+                ]
+            }
+
+            # Show title to the loser
+            self.send_command(f'title {username} title {{"text":"💸 BUST! 💸","color":"red","bold":true}}')
+            self.send_command(f'title {username} subtitle {{"text":"Lost {bet_minutes}m","color":"dark_red","bold":true}}')
+
+            # Send result to everyone
+            self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+
+            print(f"[GAMBLE] {username} lost {bet_minutes}m betting at {multiplier}x (roll: {roll:.4f}, needed: <{win_chance:.4f})")
+
+        # Save sessions
+        session_manager.save_sessions()
+
+        print(f"[RESPONSE] Processed gamble for {username}")
