@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import session_manager
 import json
 from pathlib import Path
+import subprocess
 
 
 class CommandHandler:
@@ -59,6 +60,7 @@ class CommandHandler:
             'addtime': self.cmd_addtime,
             'resettime': self.cmd_resettime,
             'adminhelp': self.cmd_adminhelp,
+            'version': self.cmd_version,
         }
         print(f"[COMMANDS] Registered {len(self.commands)} commands")
 
@@ -119,7 +121,7 @@ class CommandHandler:
             available_commands = ", ".join([f"!{cmd}" for cmd in sorted(self.commands.keys())])
             extra_msg = " (Admin commands included)"
         else:
-            non_admin_cmds = ['help', 'playtime', 'rollover', 'stats', 'rules']
+            non_admin_cmds = ['help', 'playtime', 'rollover', 'stats', 'rules', 'version']
             available_commands = ", ".join([f"!{cmd}" for cmd in sorted(non_admin_cmds)])
             extra_msg = ""
 
@@ -437,3 +439,32 @@ class CommandHandler:
             print(f"[ADMIN] {username} reset {target_player}'s session")
         else:
             self.send_command(f"tell {username} Player {target_player} not found in session data")
+
+    def cmd_version(self, username, args):
+        """Version command - shows the current git hash version of ATTR"""
+        try:
+            # Get the current git hash
+            result = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
+                                  capture_output=True, text=True, cwd=Path(__file__).parent)
+
+            if result.returncode == 0:
+                git_hash = result.stdout.strip()
+                msg = f"ATTR Version: 2.0-{git_hash}"
+                color = "aqua"
+            else:
+                msg = "Version info unavailable (not a git repository)"
+                color = "yellow"
+        except Exception as e:
+            msg = "Version info unavailable"
+            color = "red"
+            print(f"[ERROR] Failed to get git hash: {e}")
+
+        tellraw_json = {
+            "text": "",
+            "extra": [
+                {"text": f"[{username}] ", "color": "gray"},
+                {"text": msg, "color": color, "bold": True}
+            ]
+        }
+        self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+        print(f"[RESPONSE] Sent version info to {username}")
