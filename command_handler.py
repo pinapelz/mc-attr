@@ -69,8 +69,9 @@ class CommandHandler:
             "playtime": self.cmd_playtime,
             "rollover": self.cmd_rollover,
             "stats": self.cmd_stats,
-            "rules": self.cmd_rules,
-            "gamble": self.cmd_gamble,
+            'rules': self.cmd_rules,
+            'gamble': self.cmd_gamble,
+            'gambaodds': self.cmd_gambaodds,
             # Admin commands
             "unban": self.cmd_unban,
             "addtime": self.cmd_addtime,
@@ -149,6 +150,7 @@ class CommandHandler:
                 "rules",
                 "version",
                 "gamble",
+                "gambaodds",
             ]
             available_commands = ", ".join(
                 [f"!{cmd}" for cmd in sorted(non_admin_cmds)]
@@ -749,3 +751,35 @@ class CommandHandler:
         session_manager.save_sessions()
 
         print(f"[RESPONSE] Processed gamble for {username}")
+
+    def cmd_gambaodds(self, username, args):
+        """Gambaodds command - shows gambling odds and probabilities"""
+        tellraw_json = {
+            "text": "",
+            "extra": [
+                {"text": f"[{username}] ", "color": "gray"},
+                {"text": "🎲 Gambling Odds 🎲", "color": "gold", "bold": True},
+            ]
+        }
+
+        # Add each multiplier with its odds
+        for mult in self.gambling_config["multipliers"]:
+            multiplier = mult["m"]
+            probability = mult["p"]
+            win_chance_percent = probability * 100
+
+            tellraw_json["extra"].extend([
+                {"text": "\n• ", "color": "white"},
+                {"text": f"{multiplier}x", "color": "aqua", "bold": True},
+                {"text": f" - {win_chance_percent:.1f}% chance", "color": "yellow"},
+                {"text": f" (1 in {1/probability:.1f})", "color": "gray"}
+            ])
+
+        tellraw_json["extra"].extend([
+            {"text": "\n\n", "color": "white"},
+            {"text": "💡 Tip: ", "color": "green", "bold": True},
+            {"text": "Higher multipliers = lower win chance!", "color": "white"}
+        ])
+
+        self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+        print(f"[RESPONSE] Sent gambling odds to {username}")
