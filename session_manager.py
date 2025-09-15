@@ -2,15 +2,16 @@ import time
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+from constants import MAXIMUM_PLAYTIME_INT, FREEPLAY_DAYS
 
 SESSION_FILE = Path("sessions.json")
-PLAY_LIMIT = timedelta(hours=3)  # normal weekday limit
+PLAY_LIMIT = timedelta(hours=MAXIMUM_PLAYTIME_INT)  # normal weekday limit
 
 sessions = {}
-weekend_unlimited_announced = False  # global weekend announcement flag
+unlimited_play_announced = False  # global weekend announcement flag
 first_cycle = True  # Track if this is the first cycle after startup
 
-
+# If it is saturday or sunday. Change this condition for your own use-case
 def load_sessions():
     global sessions
     if SESSION_FILE.exists():
@@ -57,7 +58,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     One cycle of session management (called repeatedly while server is online).
     Pauses automatically when server is offline because `main` controls execution.
     """
-    global weekend_unlimited_announced, first_cycle
+    global unlimited_play_announced, first_cycle
     load_sessions()
 
     # Handle first cycle after program restart
@@ -74,12 +75,12 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
     today_str = now.date().isoformat()
     online_players = get_online_players()
     weekday = now.weekday()
-    is_weekend = weekday >= 5  # Saturday=5, Sunday=6
+    is_freeplay = FREEPLAY_DAYS[weekday]
 
     # --- Daily reset for ALL players (including offline ones) ---
     for player, data in sessions.items():
         if data.get("session_date") != today_str:
-            # Calculate unused time and add to rollover (but not on weekends)
+            # Calculate unused time and add to rollover (but not on freeplay periods)
             yesterday_weekday = (now - timedelta(days=1)).weekday()
             if yesterday_weekday < 5:  # only rollover from weekdays
                 current_rollover = data.get("rollover_time", 0)
@@ -121,15 +122,15 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 data["banned"] = False
                 send_message(None, f"{player} has been unbanned for the new day.")
 
-    # --- Handle weekend unlimited logic ---
-    if is_weekend and not weekend_unlimited_announced:
+    # --- Handle freeplay unlimited logic ---
+    if is_freeplay and not unlimited_play_announced:
         send_message(None, "Weekend unlimited playtime has started! Enjoy!")
         run_command("/title @a title {{\"text\":\"Its the weekend! Unlimited Playtime!\",\"color\":\"green\",\"bold\":true}}")
-        weekend_unlimited_announced = True
-    elif not is_weekend and weekend_unlimited_announced:
+        unlimited_play_announced = True
+    elif not is_freeplay and unlimited_play_announced:
         send_message(None, "Weekend unlimited playtime has ended. Weekday limit resumed! Resetting all session times.")
         run_command("/title @a title {{\"text\":\"Weekend Unlimited Playtime ENDED\",\"color\":\"red\",\"bold\":true}}")
-        weekend_unlimited_announced = False
+        unlimited_play_announced = False
 
         for player, data in sessions.items():
             data["playtime"] = 0
@@ -169,14 +170,14 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
             delta = (now - last_checked).total_seconds()
             # Only check for ban evading on weekdays (weekends have no restrictions)
-            if not is_weekend and sessions[player]["banned"]:
+            if not is_freeplay and sessions[player]["banned"]:
                 print([f"{player} is BAN EVADING!"])
                 run_command(f"ban {player} really? thought you could get away with it that easily?")
             else:
                 sessions[player]["playtime"] += delta
         else:
             # First login, don't add any delta time
-            if not is_weekend:
+            if not is_freeplay:
                 rollover_time = sessions[player].get("rollover_time", 0)
                 total_limit = PLAY_LIMIT.total_seconds() + rollover_time
                 seconds_remaining = total_limit - sessions[player]["playtime"]
@@ -200,7 +201,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             sessions[player]["online"] = False
 
     # --- Enforce weekday limits ---
-    if not is_weekend:
+    if not is_freeplay:
         for player, data in sessions.items():
             rollover_time = data.get("rollover_time", 0)
             total_limit = PLAY_LIMIT.total_seconds() + rollover_time
