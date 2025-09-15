@@ -132,12 +132,13 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
         run_command("/title @a title {{\"text\":\"Weekend Unlimited Playtime ENDED\",\"color\":\"red\",\"bold\":true}}")
         unlimited_play_announced = False
 
+        # Reset all players for weekday start, but preserve online status to prevent delta issues
         for player, data in sessions.items():
             data["playtime"] = 0
             data["rollover_time"] = 0  # clear rollover when weekend ends
             data["session_start"] = dt_to_iso(now)
-            data["online"] = False
-            data["last_checked"] = dt_to_iso(now)
+            # Don't set online = False here - preserve current online status to prevent phantom deltas
+            data["last_checked"] = dt_to_iso(now)  # Reset last_checked to now to prevent large deltas
             data["banned"] = False
             for k in data["announcements"]:
                 data["announcements"][k] = False
@@ -169,18 +170,33 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             # Already online, calculate and update playtime
             last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
             delta = (now - last_checked).total_seconds()
+            
+            # Protect against large deltas (more than 2 minutes suggests timing issues)
+            if delta > 120:
+                print(f"[WARNING] Large delta detected for {player}: {delta}s, capping to 60s")
+                delta = 60
+            elif delta < 0:
+                print(f"[WARNING] Negative delta detected for {player}: {delta}s, setting to 0")
+                delta = 0
+            
             # Only check for ban evading on weekdays (weekends have no restrictions)
             if not is_freeplay and sessions[player]["banned"]:
                 print([f"{player} is BAN EVADING!"])
                 run_command(f"ban {player} really? thought you could get away with it that easily?")
             else:
-                sessions[player]["playtime"] += delta
+                # Only add delta if it's reasonable (positive and not too large)
+                if delta > 0:
+                    sessions[player]["playtime"] += delta
         else:
             # First login, don't add any delta time
+            print(f"[INFO] {player} logging in for first time today")
             if not is_freeplay:
                 rollover_time = sessions[player].get("rollover_time", 0)
                 total_limit = PLAY_LIMIT.total_seconds() + rollover_time
-                seconds_remaining = total_limit - sessions[player]["playtime"]
+                # Ensure playtime is never negative
+                current_playtime = max(0, sessions[player]["playtime"])
+                sessions[player]["playtime"] = current_playtime
+                seconds_remaining = total_limit - current_playtime
                 pretty_time_str = str(timedelta(seconds=int(max(0, seconds_remaining))))
                 if seconds_remaining <= 0 or sessions[player]["banned"] is True:
                     send_message(player, "You are not welcome. Please come back tomorrow")
@@ -245,7 +261,8 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                     data["announcements"][label] = True
                     break
 
-            # Ban and reset
+            # Ban and reset - ensure playtime is never negative before checking
+            data["playtime"] = max(0, data["playtime"])
             rollover_time = data.get("rollover_time", 0)
             total_limit = PLAY_LIMIT.total_seconds() + rollover_time
             if data["playtime"] >= total_limit and not data.get("banned", False):
