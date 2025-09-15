@@ -1,10 +1,11 @@
-import re
-from datetime import datetime, timedelta
-import session_manager
 import json
-from pathlib import Path
-import subprocess
 import random
+import re
+import subprocess
+from datetime import datetime
+from pathlib import Path
+
+import session_manager
 
 
 class CommandHandler:
@@ -25,24 +26,22 @@ class CommandHandler:
 
         # Chat message pattern: [HH:MM:SS] [Server thread/INFO]: <username> message
         self.chat_pattern = re.compile(
-            r'\[(\d{2}:\d{2}:\d{2})\] \[.*?/INFO\]: <([^>]+)> (.+)'
+            r"\[(\d{2}:\d{2}:\d{2})\] \[.*?/INFO\]: <([^>]+)> (.+)"
         )
 
         # Gambling configuration
         self.gambling_config = {
-            "house_edge": 0.15,
             "multipliers": [
-                {"m": 1.05, "p": 0.8095238095238095},
-                {"m": 1.10, "p": 0.7727272727272727},
-                {"m": 1.25, "p": 0.68},
-                {"m": 1.50, "p": 0.5666666666666667},
-                {"m": 2.00, "p": 0.425},
-                {"m": 3.00, "p": 0.2833333333333333},
-                {"m": 5.00, "p": 0.17},
-                {"m": 10.00, "p": 0.085}
-            ]
+                {"m": 1.05, "p": 0.8571428571428571},
+                {"m": 1.10, "p": 0.8181818181818182},
+                {"m": 1.25, "p": 0.72},
+                {"m": 1.50, "p": 0.6},
+                {"m": 2.00, "p": 0.45},
+                {"m": 3.00, "p": 0.3},
+                {"m": 5.00, "p": 0.18},
+                {"m": 10.00, "p": 0.09},
+            ],
         }
-
         # Register default commands
         self._register_commands()
 
@@ -66,18 +65,18 @@ class CommandHandler:
     def _register_commands(self):
         """Register available commands"""
         self.commands = {
-            'help': self.cmd_help,
-            'playtime': self.cmd_playtime,
-            'rollover': self.cmd_rollover,
-            'stats': self.cmd_stats,
-            'rules': self.cmd_rules,
-            'gamble': self.cmd_gamble,
+            "help": self.cmd_help,
+            "playtime": self.cmd_playtime,
+            "rollover": self.cmd_rollover,
+            "stats": self.cmd_stats,
+            "rules": self.cmd_rules,
+            "gamble": self.cmd_gamble,
             # Admin commands
-            'unban': self.cmd_unban,
-            'addtime': self.cmd_addtime,
-            'resettime': self.cmd_resettime,
-            'adminhelp': self.cmd_adminhelp,
-            'version': self.cmd_version,
+            "unban": self.cmd_unban,
+            "addtime": self.cmd_addtime,
+            "resettime": self.cmd_resettime,
+            "adminhelp": self.cmd_adminhelp,
+            "version": self.cmd_version,
         }
         print(f"[COMMANDS] Registered {len(self.commands)} commands")
 
@@ -94,7 +93,7 @@ class CommandHandler:
             print(f"[CHAT] {username}: {message}")
 
             # Check if message is a command (starts with !)
-            if message.startswith('!'):
+            if message.startswith("!"):
                 self.handle_command(username, message)
 
     def handle_command(self, username, message):
@@ -123,7 +122,9 @@ class CommandHandler:
                 print(f"[ERROR] Command handler error for {command}: {e}")
                 self.send_command(f"tell {username} Error executing command: {str(e)}")
         else:
-            self.send_command(f"tell {username} Unknown command: !{command}. Type !help for available commands.")
+            self.send_command(
+                f"tell {username} Unknown command: !{command}. Type !help for available commands."
+            )
 
     def is_admin(self, username):
         """Check if a user is an admin"""
@@ -135,11 +136,23 @@ class CommandHandler:
         """Help command - shows available commands"""
         # Filter out admin commands for non-admins
         if self.is_admin(username):
-            available_commands = ", ".join([f"!{cmd}" for cmd in sorted(self.commands.keys())])
+            available_commands = ", ".join(
+                [f"!{cmd}" for cmd in sorted(self.commands.keys())]
+            )
             extra_msg = " (Admin commands included)"
         else:
-            non_admin_cmds = ['help', 'playtime', 'rollover', 'stats', 'rules', 'version', 'gamble']
-            available_commands = ", ".join([f"!{cmd}" for cmd in sorted(non_admin_cmds)])
+            non_admin_cmds = [
+                "help",
+                "playtime",
+                "rollover",
+                "stats",
+                "rules",
+                "version",
+                "gamble",
+            ]
+            available_commands = ", ".join(
+                [f"!{cmd}" for cmd in sorted(non_admin_cmds)]
+            )
             extra_msg = ""
 
         tellraw_json = {
@@ -147,12 +160,11 @@ class CommandHandler:
             "extra": [
                 {"text": f"[{username}] ", "color": "gray"},
                 {"text": f"Available commands{extra_msg}: ", "color": "white"},
-                {"text": available_commands, "color": "aqua", "bold": True}
-            ]
+                {"text": available_commands, "color": "aqua", "bold": True},
+            ],
         }
-        self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+        self.send_command(f"tellraw {username} {json.dumps(tellraw_json)}")
         print(f"[RESPONSE] Sent help response to {username}")
-
 
     def cmd_playtime(self, username, args):
         """Playtime command - shows remaining playtime for a player"""
@@ -167,7 +179,11 @@ class CommandHandler:
             is_weekend = weekday >= 5
 
             if is_weekend:
-                msg = f"{target_player} has unlimited playtime (weekend)" if target_player != username else "You have unlimited playtime (weekend)"
+                msg = (
+                    f"{target_player} has unlimited playtime (weekend)"
+                    if target_player != username
+                    else "You have unlimited playtime (weekend)"
+                )
                 color = "green"
             else:
                 rollover_time = data.get("rollover_time", 0)
@@ -175,7 +191,11 @@ class CommandHandler:
                 remaining = total_limit - data["playtime"]
 
                 if remaining <= 0:
-                    msg = f"{target_player} has no time remaining today" if target_player != username else "You have no time remaining today. Come back tomorrow!"
+                    msg = (
+                        f"{target_player} has no time remaining today"
+                        if target_player != username
+                        else "You have no time remaining today. Come back tomorrow!"
+                    )
                     color = "red"
                 else:
                     hours = int(remaining // 3600)
@@ -183,22 +203,26 @@ class CommandHandler:
                     if target_player == username:
                         msg = f"You have {hours}h {minutes}m remaining today"
                         if rollover_time > 0:
-                            msg += f" (includes {rollover_time/3600:.1f}h rollover)"
+                            msg += f" (includes {rollover_time / 3600:.1f}h rollover)"
                     else:
                         msg = f"{target_player} has {hours}h {minutes}m remaining today"
                     color = "gold"
         else:
-            msg = f"No session data found for {target_player}" if target_player != username else "No session data found. Play for a bit first!"
+            msg = (
+                f"No session data found for {target_player}"
+                if target_player != username
+                else "No session data found. Play for a bit first!"
+            )
             color = "red"
 
         tellraw_json = {
             "text": "",
             "extra": [
                 {"text": f"[{username}] ", "color": "gray"},
-                {"text": msg, "color": color, "bold": True}
-            ]
+                {"text": msg, "color": color, "bold": True},
+            ],
         }
-        self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+        self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
         print(f"[RESPONSE] Sent playtime info to {username}")
 
     def cmd_rollover(self, username, args):
@@ -235,10 +259,10 @@ class CommandHandler:
             "text": "",
             "extra": [
                 {"text": f"[{username}] ", "color": "gray"},
-                {"text": msg, "color": color, "bold": True}
-            ]
+                {"text": msg, "color": color, "bold": True},
+            ],
         }
-        self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+        self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
         print(f"[RESPONSE] Sent rollover info to {username}")
 
     def cmd_stats(self, username, args):
@@ -252,7 +276,9 @@ class CommandHandler:
 
         # Calculate average playtime
         total_playtime = sum(s.get("playtime", 0) for s in sessions.values())
-        average_hours = (total_playtime / total_players) / 3600 if total_players > 0 else 0
+        average_hours = (
+            (total_playtime / total_players) / 3600 if total_players > 0 else 0
+        )
 
         # Construct a fancy tellraw JSON message
         tellraw_json = {
@@ -266,12 +292,12 @@ class CommandHandler:
                 {"text": ", ", "color": "white"},
                 {"text": f"{banned_count} banned", "color": "red", "bold": True},
                 {"text": ", ", "color": "white"},
-                {"text": f"{average_hours:.1f}h avg playtime", "color": "gold"}
-            ]
+                {"text": f"{average_hours:.1f}h avg playtime", "color": "gold"},
+            ],
         }
 
         # Send to everyone
-        self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+        self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
         print(f"[RESPONSE] Sent stats to {username}")
 
     def cmd_rules(self, username, args):
@@ -288,8 +314,8 @@ class CommandHandler:
                     {"text": "Unlimited playtime. ", "color": "aqua"},
                     {"text": "Weekday limit: ", "color": "white"},
                     {"text": "3 hours ", "color": "gold", "bold": True},
-                    {"text": "(unused time rolls over)", "color": "yellow"}
-                ]
+                    {"text": "(unused time rolls over)", "color": "yellow"},
+                ],
             }
         else:
             tellraw_json = {
@@ -300,11 +326,11 @@ class CommandHandler:
                     {"text": "3 hour daily limit. ", "color": "gold"},
                     {"text": "Unused time rolls over. ", "color": "aqua"},
                     {"text": "Weekends have ", "color": "white"},
-                    {"text": "unlimited playtime!", "color": "green", "bold": True}
-                ]
+                    {"text": "unlimited playtime!", "color": "green", "bold": True},
+                ],
             }
 
-        self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+        self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
         print(f"[RESPONSE] Sent rules to {username}")
 
     # Admin Commands
@@ -312,7 +338,9 @@ class CommandHandler:
     def cmd_adminhelp(self, username, args):
         """Admin help command - shows admin commands"""
         if not self.is_admin(username):
-            self.send_command(f"tell {username} You don't have permission to use this command!")
+            self.send_command(
+                f"tell {username} You don't have permission to use this command!"
+            )
             return
 
         tellraw_json = {
@@ -324,16 +352,18 @@ class CommandHandler:
                 {"text": ", ", "color": "white"},
                 {"text": "!addtime <player> <hours>", "color": "gold"},
                 {"text": ", ", "color": "white"},
-                {"text": "!resettime <player>", "color": "gold"}
-            ]
+                {"text": "!resettime <player>", "color": "gold"},
+            ],
         }
-        self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+        self.send_command(f"tellraw {username} {json.dumps(tellraw_json)}")
         print(f"[ADMIN] {username} requested admin help")
 
     def cmd_unban(self, username, args):
         """Unban command - removes a player from the ban list"""
         if not self.is_admin(username):
-            self.send_command(f"tell {username} You don't have permission to use this command!")
+            self.send_command(
+                f"tell {username} You don't have permission to use this command!"
+            )
             return
 
         if not args:
@@ -356,19 +386,23 @@ class CommandHandler:
                 "text": "",
                 "extra": [
                     {"text": f"[ADMIN {username}] ", "color": "red"},
-                    {"text": f"Unbanned ", "color": "white"},
-                    {"text": target_player, "color": "yellow", "bold": True}
-                ]
+                    {"text": "Unbanned ", "color": "white"},
+                    {"text": target_player, "color": "yellow", "bold": True},
+                ],
             }
-            self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
             print(f"[ADMIN] {username} unbanned {target_player}")
         else:
-            self.send_command(f"tell {username} Player {target_player} not found in session data")
+            self.send_command(
+                f"tell {username} Player {target_player} not found in session data"
+            )
 
     def cmd_addtime(self, username, args):
         """Add time command - adds hours to a player's rollover time"""
         if not self.is_admin(username):
-            self.send_command(f"tell {username} You don't have permission to use this command!")
+            self.send_command(
+                f"tell {username} You don't have permission to use this command!"
+            )
             return
 
         if len(args) < 2:
@@ -385,8 +419,12 @@ class CommandHandler:
         # Load sessions and add time
         session_manager.load_sessions()
         if target_player in session_manager.sessions:
-            current_rollover = session_manager.sessions[target_player].get("rollover_time", 0)
-            session_manager.sessions[target_player]["rollover_time"] = current_rollover + (hours_to_add * 3600)
+            current_rollover = session_manager.sessions[target_player].get(
+                "rollover_time", 0
+            )
+            session_manager.sessions[target_player]["rollover_time"] = (
+                current_rollover + (hours_to_add * 3600)
+            )
             session_manager.save_sessions()
 
             # Announce the time addition
@@ -394,27 +432,32 @@ class CommandHandler:
                 "text": "",
                 "extra": [
                     {"text": f"[ADMIN {username}] ", "color": "red"},
-                    {"text": f"Added ", "color": "white"},
+                    {"text": "Added ", "color": "white"},
                     {"text": f"{hours_to_add} hours", "color": "green", "bold": True},
-                    {"text": f" to ", "color": "white"},
-                    {"text": target_player, "color": "yellow", "bold": True}
-                ]
+                    {"text": " to ", "color": "white"},
+                    {"text": target_player, "color": "yellow", "bold": True},
+                ],
             }
-            self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
 
             # Notify the target player if they're online
             if session_manager.sessions[target_player].get("online", False):
-                self.send_command(f"tell {target_player} An admin has granted you {hours_to_add} extra hours!")
+                self.send_command(
+                    f"tell {target_player} An admin has granted you {hours_to_add} extra hours!"
+                )
 
             print(f"[ADMIN] {username} added {hours_to_add} hours to {target_player}")
         else:
-            self.send_command(f"tell {username} Player {target_player} not found in session data")
-
+            self.send_command(
+                f"tell {username} Player {target_player} not found in session data"
+            )
 
     def cmd_resettime(self, username, args):
         """Reset time command - resets a player's session completely"""
         if not self.is_admin(username):
-            self.send_command(f"tell {username} You don't have permission to use this command!")
+            self.send_command(
+                f"tell {username} You don't have permission to use this command!"
+            )
             return
 
         if not args:
@@ -442,27 +485,35 @@ class CommandHandler:
                 "text": "",
                 "extra": [
                     {"text": f"[ADMIN {username}] ", "color": "red"},
-                    {"text": f"Reset ", "color": "white"},
+                    {"text": "Reset ", "color": "white"},
                     {"text": target_player, "color": "yellow", "bold": True},
-                    {"text": "'s session (full 3 hours restored)", "color": "green"}
-                ]
+                    {"text": "'s session (full 3 hours restored)", "color": "green"},
+                ],
             }
-            self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
 
             # Notify the target player if they're online
             if session_manager.sessions[target_player].get("online", False):
-                self.send_command(f"tell {target_player} An admin has reset your session! You now have full playtime available.")
+                self.send_command(
+                    f"tell {target_player} An admin has reset your session! You now have full playtime available."
+                )
 
             print(f"[ADMIN] {username} reset {target_player}'s session")
         else:
-            self.send_command(f"tell {username} Player {target_player} not found in session data")
+            self.send_command(
+                f"tell {username} Player {target_player} not found in session data"
+            )
 
     def cmd_version(self, username, args):
         """Version command - shows the current git hash version of ATTR"""
         try:
             # Get the current git hash
-            result = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
-                                  capture_output=True, text=True, cwd=Path(__file__).parent)
+            result = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=Path(__file__).parent,
+            )
 
             if result.returncode == 0:
                 git_hash = result.stdout.strip()
@@ -480,10 +531,10 @@ class CommandHandler:
             "text": "",
             "extra": [
                 {"text": f"[{username}] ", "color": "gray"},
-                {"text": msg, "color": color, "bold": True}
-            ]
+                {"text": msg, "color": color, "bold": True},
+            ],
         }
-        self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+        self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
         print(f"[RESPONSE] Sent version info to {username}")
 
     def cmd_gamble(self, username, args):
@@ -497,10 +548,14 @@ class CommandHandler:
                 "text": "",
                 "extra": [
                     {"text": f"[{username}] ", "color": "gray"},
-                    {"text": "Gambling is disabled on weekends (unlimited playtime)!", "color": "red", "bold": True}
-                ]
+                    {
+                        "text": "Gambling is disabled on weekends (unlimited playtime)!",
+                        "color": "red",
+                        "bold": True,
+                    },
+                ],
             }
-            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw {username} {json.dumps(tellraw_json)}")
             return
 
         # Load session data
@@ -508,7 +563,9 @@ class CommandHandler:
         sessions = session_manager.sessions
 
         if username not in sessions:
-            self.send_command(f"tell {username} No session data found. Play for a bit first!")
+            self.send_command(
+                f"tell {username} No session data found. Play for a bit first!"
+            )
             return
 
         data = sessions[username]
@@ -524,10 +581,14 @@ class CommandHandler:
                 "text": "",
                 "extra": [
                     {"text": f"[{username}] ", "color": "gray"},
-                    {"text": f"You need at least 5 minutes remaining to gamble. You have {minutes}m left.", "color": "red", "bold": True}
-                ]
+                    {
+                        "text": f"You need at least 5 minutes remaining to gamble. You have {minutes}m left.",
+                        "color": "red",
+                        "bold": True,
+                    },
+                ],
             }
-            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw {username} {json.dumps(tellraw_json)}")
             return
 
         # Parse arguments
@@ -538,28 +599,34 @@ class CommandHandler:
                 "extra": [
                     {"text": f"[{username}] ", "color": "gray"},
                     {"text": "Usage: !gamble <minutes> <multiplier>", "color": "white"},
-                    {"text": "\nAvailable multipliers: ", "color": "yellow"}
-                ]
+                    {"text": "\nAvailable multipliers: ", "color": "yellow"},
+                ],
             }
 
             # Add multiplier options
             for i, mult in enumerate(self.gambling_config["multipliers"]):
                 if i > 0:
                     tellraw_json["extra"].append({"text": ", ", "color": "white"})
-                tellraw_json["extra"].append({
-                    "text": f"{mult['m']}x ({mult['p']*100:.1f}%)",
-                    "color": "gold"
-                })
+                tellraw_json["extra"].append(
+                    {"text": f"{mult['m']}x ({mult['p'] * 100:.1f}%)", "color": "gold"}
+                )
 
-            tellraw_json["extra"].append({"text": f"\nYou have {int(remaining//60)}m {int(remaining%60)}s available", "color": "aqua"})
-            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            tellraw_json["extra"].append(
+                {
+                    "text": f"\nYou have {int(remaining // 60)}m {int(remaining % 60)}s available",
+                    "color": "aqua",
+                }
+            )
+            self.send_command(f"tellraw {username} {json.dumps(tellraw_json)}")
             return
 
         try:
             bet_minutes = int(args[0])
             multiplier = float(args[1])
         except ValueError:
-            self.send_command(f"tell {username} Invalid arguments. Use: !gamble <minutes> <multiplier>")
+            self.send_command(
+                f"tell {username} Invalid arguments. Use: !gamble <minutes> <multiplier>"
+            )
             return
 
         # Validate bet amount
@@ -569,10 +636,14 @@ class CommandHandler:
                 "text": "",
                 "extra": [
                     {"text": f"[{username}] ", "color": "gray"},
-                    {"text": f"You can't bet {bet_minutes}m - you only have {int(remaining//60)}m {int(remaining%60)}s!", "color": "red", "bold": True}
-                ]
+                    {
+                        "text": f"You can't bet {bet_minutes}m - you only have {int(remaining // 60)}m {int(remaining % 60)}s!",
+                        "color": "red",
+                        "bold": True,
+                    },
+                ],
             }
-            self.send_command(f'tellraw {username} {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw {username} {json.dumps(tellraw_json)}")
             return
 
         if bet_minutes < 5:
@@ -587,8 +658,12 @@ class CommandHandler:
                 break
 
         if mult_config is None:
-            available_mults = ", ".join([str(m["m"]) for m in self.gambling_config["multipliers"]])
-            self.send_command(f"tell {username} Invalid multiplier! Available: {available_mults}")
+            available_mults = ", ".join(
+                [str(m["m"]) for m in self.gambling_config["multipliers"]]
+            )
+            self.send_command(
+                f"tell {username} Invalid multiplier! Available: {available_mults}"
+            )
             return
 
         # Perform the gamble
@@ -605,22 +680,34 @@ class CommandHandler:
             tellraw_json = {
                 "text": "",
                 "extra": [
-                    {"text": f"[GAMBLE] ", "color": "gold", "bold": True},
+                    {"text": "[GAMBLE] ", "color": "gold", "bold": True},
                     {"text": f"{username} ", "color": "yellow"},
                     {"text": "WON ", "color": "green", "bold": True},
-                    {"text": f"{int(winnings//60)}m {int(winnings%60)}s ", "color": "green"},
-                    {"text": f"(bet {bet_minutes}m at {multiplier}x)! 🎉", "color": "white"}
-                ]
+                    {
+                        "text": f"{int(winnings // 60)}m {int(winnings % 60)}s ",
+                        "color": "green",
+                    },
+                    {
+                        "text": f"(bet {bet_minutes}m at {multiplier}x)! 🎉",
+                        "color": "white",
+                    },
+                ],
             }
 
             # Show title to the winner
-            self.send_command(f'title {username} title {{"text":"🎉 JACKPOT! 🎉","color":"gold","bold":true}}')
-            self.send_command(f'title {username} subtitle {{"text":"Won {int(winnings//60)}m {int(winnings%60)}s!","color":"green","bold":true}}')
+            self.send_command(
+                f'title {username} title {{"text":"🎉 JACKPOT! 🎉","color":"gold","bold":true}}'
+            )
+            self.send_command(
+                f'title {username} subtitle {{"text":"Won {int(winnings // 60)}m {int(winnings % 60)}s!","color":"green","bold":true}}'
+            )
 
             # Send result to everyone
-            self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
 
-            print(f"[GAMBLE] {username} won {winnings/60:.1f}m betting {bet_minutes}m at {multiplier}x (roll: {roll:.4f}, needed: <{win_chance:.4f})")
+            print(
+                f"[GAMBLE] {username} won {winnings / 60:.1f}m betting {bet_minutes}m at {multiplier}x (roll: {roll:.4f}, needed: <{win_chance:.4f})"
+            )
         else:
             # Player loses - deduct from rollover first, then from remaining time
             if rollover_time >= bet_seconds:
@@ -635,22 +722,28 @@ class CommandHandler:
             tellraw_json = {
                 "text": "",
                 "extra": [
-                    {"text": f"[GAMBLE] ", "color": "gold", "bold": True},
+                    {"text": "[GAMBLE] ", "color": "gold", "bold": True},
                     {"text": f"{username} ", "color": "yellow"},
                     {"text": "LOST ", "color": "red", "bold": True},
                     {"text": f"{bet_minutes}m ", "color": "red"},
-                    {"text": f"(bet at {multiplier}x) 💸", "color": "white"}
-                ]
+                    {"text": f"(bet at {multiplier}x) 💸", "color": "white"},
+                ],
             }
 
             # Show title to the loser
-            self.send_command(f'title {username} title {{"text":"💸 BUST! 💸","color":"red","bold":true}}')
-            self.send_command(f'title {username} subtitle {{"text":"Lost {bet_minutes}m","color":"dark_red","bold":true}}')
+            self.send_command(
+                f'title {username} title {{"text":"💸 BUST! 💸","color":"red","bold":true}}'
+            )
+            self.send_command(
+                f'title {username} subtitle {{"text":"Lost {bet_minutes}m","color":"dark_red","bold":true}}'
+            )
 
             # Send result to everyone
-            self.send_command(f'tellraw @a {json.dumps(tellraw_json)}')
+            self.send_command(f"tellraw @a {json.dumps(tellraw_json)}")
 
-            print(f"[GAMBLE] {username} lost {bet_minutes}m betting at {multiplier}x (roll: {roll:.4f}, needed: <{win_chance:.4f})")
+            print(
+                f"[GAMBLE] {username} lost {bet_minutes}m betting at {multiplier}x (roll: {roll:.4f}, needed: <{win_chance:.4f})"
+            )
 
         # Save sessions
         session_manager.save_sessions()
