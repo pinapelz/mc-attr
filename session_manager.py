@@ -88,28 +88,38 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             if yesterday_weekday < 5:  # only rollover from weekdays
                 current_rollover = data.get("rollover_time", 0)
                 yesterday_playtime = data["playtime"]
-                # Use actual effective limit (base + rollover) for unused time calculation
-                effective_limit = PLAY_LIMIT.total_seconds() + current_rollover
-                unused_time = max(0, effective_limit - yesterday_playtime)
-                print(f"[ROLLOVER] {player}: effective_limit={timedelta(seconds=effective_limit)}, played={timedelta(seconds=yesterday_playtime)}, unused={timedelta(seconds=unused_time)}")
+                base_limit = PLAY_LIMIT.total_seconds()
+
+                # Calculate how much base time was unused
+                unused_base_time = max(0, base_limit - yesterday_playtime)
+
+                # If they used more than base limit, reduce rollover accordingly
+                if yesterday_playtime > base_limit:
+                    rollover_used = yesterday_playtime - base_limit
+                    new_rollover = max(0, current_rollover - rollover_used)
+                else:
+                    # They didn't use full base limit, so they get rollover for unused base time
+                    # Plus keep any existing rollover they didn't touch
+                    new_rollover = current_rollover + unused_base_time
+
+                print(f"[ROLLOVER] {player}: base_limit={PLAY_LIMIT}, played={timedelta(seconds=yesterday_playtime)}, old_rollover={timedelta(seconds=current_rollover)}")
 
                 # Clear rollover if today is Saturday (after Friday)
                 if weekday == 5:  # Saturday
                     data["rollover_time"] = 0
-                    if unused_time > 0:
-                        unused_hours = unused_time / 3600
+                    if new_rollover > 0:
+                        unused_hours = new_rollover / 3600
                         # Only send message if player is online
                         if player in online_players:
-                            send_message(player, f"Note: {unused_hours:.1f} hours of unused time expired entering the weekend.")
+                            send_message(player, f"Note: {unused_hours:.1f} hours of rollover time expired entering the weekend.")
                 else:
-                    data["rollover_time"] = current_rollover + unused_time
-                    print(f"[ROLLOVER UPDATE] {player}: {current_rollover/3600:.2f}h + {unused_time/3600:.2f}h unused = {data['rollover_time']/3600:.2f}h total")
-                    if unused_time > 0:
-                        unused_hours = unused_time / 3600
-                        total_rollover_hours = (current_rollover + unused_time) / 3600
+                    data["rollover_time"] = new_rollover
+                    print(f"[ROLLOVER UPDATE] {player}: new rollover = {new_rollover/3600:.2f}h")
+                    if unused_base_time > 0 or current_rollover != new_rollover:
                         # Only send message if player is online
                         if player in online_players:
-                            send_message(player, f"You had {unused_hours:.1f} hours of unused time yesterday. Total rollover: {total_rollover_hours:.1f} hours.")
+                            total_rollover_hours = new_rollover / 3600
+                            send_message(player, f"Daily reset: You now have {total_rollover_hours:.1f} hours rollover time available.")
             else:
                 # Don't rollover weekend time, but keep existing rollover
                 data["rollover_time"] = data.get("rollover_time", 0)
