@@ -103,10 +103,11 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                             send_message(player, f"Note: {unused_hours:.1f} hours of unused time expired entering the weekend.")
                 else:
                     data["rollover_time"] = current_rollover + unused_time
+                    print(f"[ROLLOVER UPDATE] {player}: {current_rollover/3600:.2f}h + {unused_time/3600:.2f}h unused = {data['rollover_time']/3600:.2f}h total")
                     if unused_time > 0:
                         unused_hours = unused_time / 3600
                         total_rollover_hours = (current_rollover + unused_time) / 3600
-                        # Only send messagfe if player is online
+                        # Only send message if player is online
                         if player in online_players:
                             send_message(player, f"You had {unused_hours:.1f} hours of unused time yesterday. Total rollover: {total_rollover_hours:.1f} hours.")
             else:
@@ -127,6 +128,10 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 run_command(f"pardon {player}")
                 data["banned"] = False
                 send_message(None, f"{player} has been unbanned for the new day.")
+
+    # Save sessions after daily reset to preserve rollover calculations
+    print("[DEBUG] Saving sessions after daily reset to preserve rollover calculations")
+    save_sessions()
 
     # --- Handle freeplay unlimited logic ---
     if is_freeplay and not unlimited_play_announced:
@@ -152,7 +157,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             run_command(f"pardon {player}")
 
     # --- Handle player sessions ---
-    load_sessions()
+    # Note: Don't reload sessions here as it would overwrite daily reset changes
     for player in online_players:
         if player in sessions:
             # Daily reset is now handled globally above for all players
