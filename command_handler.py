@@ -654,8 +654,8 @@ class CommandHandler:
             self.send_command(f"tellraw {username} {json.dumps(tellraw_json)}")
             return
 
-        if bet_minutes < 5:
-            self.send_command(f"tell {username} Minimum bet is 5 minutes!")
+        if bet_minutes < 2:
+            self.send_command(f"tell {username} Minimum bet is 2 minutes!")
             return
 
         # Find matching multiplier configuration
