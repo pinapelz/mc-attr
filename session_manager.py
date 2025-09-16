@@ -88,7 +88,10 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             if yesterday_weekday < 5:  # only rollover from weekdays
                 current_rollover = data.get("rollover_time", 0)
                 yesterday_playtime = data["playtime"]
-                unused_time = max(0, PLAY_LIMIT.total_seconds() - yesterday_playtime)
+                # Use actual effective limit (base + rollover) for unused time calculation
+                effective_limit = PLAY_LIMIT.total_seconds() + current_rollover
+                unused_time = max(0, effective_limit - yesterday_playtime)
+                print(f"[ROLLOVER] {player}: effective_limit={timedelta(seconds=effective_limit)}, played={timedelta(seconds=yesterday_playtime)}, unused={timedelta(seconds=unused_time)}")
 
                 # Clear rollover if today is Saturday (after Friday)
                 if weekday == 5:  # Saturday
