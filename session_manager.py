@@ -140,6 +140,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             # Don't set online = False here - preserve current online status to prevent phantom deltas
             data["last_checked"] = dt_to_iso(now)  # Reset last_checked to now to prevent large deltas
             data["banned"] = False
+            data["session_date"] = today_str
             for k in data["announcements"]:
                 data["announcements"][k] = False
             run_command(f"pardon {player}")
@@ -170,7 +171,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             # Already online, calculate and update playtime
             last_checked = iso_to_dt(sessions[player].get("last_checked", dt_to_iso(now)))
             delta = (now - last_checked).total_seconds()
-            
+
             # Protect against large deltas (more than 2 minutes suggests timing issues)
             if delta > 120:
                 print(f"[WARNING] Large delta detected for {player}: {delta}s, capping to 60s")
@@ -178,7 +179,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
             elif delta < 0:
                 print(f"[WARNING] Negative delta detected for {player}: {delta}s, setting to 0")
                 delta = 0
-            
+
             # Only check for ban evading on weekdays (weekends have no restrictions)
             if not is_freeplay and sessions[player]["banned"]:
                 print([f"{player} is BAN EVADING!"])
