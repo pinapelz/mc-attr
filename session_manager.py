@@ -79,7 +79,10 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
 
     # --- Daily reset for ALL players (including offline ones) ---
     for player, data in sessions.items():
+        player_session_date = data.get("session_date")
+        print(f"[DEBUG] {player}: session_date={player_session_date}, today_str={today_str}, match={player_session_date == today_str}")
         if data.get("session_date") != today_str:
+            print(f"[DEBUG] Triggering daily reset for {player}")
             # Calculate unused time and add to rollover (but not on freeplay periods)
             yesterday_weekday = (now - timedelta(days=1)).weekday()
             if yesterday_weekday < 5:  # only rollover from weekdays
@@ -165,6 +168,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
 
         # Detect first login (transition from offline to online)
         was_online = sessions[player].get("online", False)
+        print(f"[DEBUG] {player}: was_online={was_online}, setting online=True")
         sessions[player]["online"] = True  # Set online status for this cycle
 
         if was_online:
@@ -277,6 +281,7 @@ def session_cycle(get_online_players=None, send_message=None, run_command=None):
                 data["banned"] = True
                 data["session_start"] = dt_to_iso(now)
                 data["playtime"] = 0
+                data["session_date"] = today_str
                 data["last_checked"] = dt_to_iso(now)  # Update last_checked to prevent phantom time
                 data["online"] = False
                 for k in data["announcements"]:
