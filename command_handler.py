@@ -430,13 +430,14 @@ class CommandHandler:
             session_manager.save_sessions()
 
             # Announce the time addition
+            wording = ["Added", "to"] if hours_to_add > 0 else ["Removed", "from"]
             tellraw_json = {
                 "text": "",
                 "extra": [
                     {"text": f"[ADMIN {username}] ", "color": "red"},
-                    {"text": "Added ", "color": "white"},
+                    {"text": f"{wording[0]} ", "color": "white"},
                     {"text": f"{hours_to_add} hours", "color": "green", "bold": True},
-                    {"text": " to ", "color": "white"},
+                    {"text": f" {wording[1]} ", "color": "white"},
                     {"text": target_player, "color": "yellow", "bold": True},
                 ],
             }
@@ -444,9 +445,14 @@ class CommandHandler:
 
             # Notify the target player if they're online
             if session_manager.sessions[target_player].get("online", False):
-                self.send_command(
-                    f"tell {target_player} An admin has granted you {hours_to_add} extra hours!"
-                )
+                if hours_to_add > 0:
+                    self.send_command(
+                        f"tell {target_player} An admin has granted you {hours_to_add} extra hours!"
+                    )
+                else:
+                    self.send_command(
+                        f"tell {target_player} An admin has removed {hours_to_add} hours from your playtime!"
+                    )
 
             print(f"[ADMIN] {username} added {hours_to_add} hours to {target_player}")
         else:

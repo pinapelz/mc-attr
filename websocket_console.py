@@ -7,6 +7,7 @@ from command_handler import CommandHandler
 
 load_dotenv()
 DEBUG_MODE = False
+SEND_READY_MESSAGE = True  # Set to False to disable ready message
 
 class WebSocketConsoleMonitor:
     """Simple WebSocket monitor to print server console to stdout"""
@@ -87,6 +88,8 @@ class WebSocketConsoleMonitor:
                     if msg_type == "started":
                         print("[WS] Console stream started")
                         self.console_subscribed = True
+                        # Send ready message to chat
+                        self.send_ready_message()
 
                     elif msg_type == "line" and msg_data:
                         if DEBUG_MODE:
@@ -142,6 +145,39 @@ class WebSocketConsoleMonitor:
             }
             self.ws.send(json.dumps(message))
             print(f"[WS] Sent command: {command}")
+
+    def send_ready_message(self):
+        """Send a ready for commands message to chat"""
+        if not SEND_READY_MESSAGE:
+            print("[WS] Ready message disabled, skipping...")
+            return
+
+        try:
+            # Use tellraw for better formatting
+            tellraw_message = {
+                "text": "",
+                "extra": [
+                    {"text": "[", "color": "gray"},
+                    {"text": "ATTR", "color": "green", "bold": True},
+                    {"text": "] ", "color": "gray"},
+                    {"text": "Ready for commands! ", "color": "aqua"},
+                    {"text": "Type ", "color": "white"},
+                    {"text": "!help", "color": "yellow", "bold": True},
+                    {"text": " for available commands.", "color": "white"}
+                ]
+            }
+            ready_command = f"tellraw @a {json.dumps(tellraw_message)}"
+            self.send_command(ready_command)
+            print("[WS] Sent ready for commands message to chat")
+        except Exception as e:
+            print(f"[WS ERROR] Failed to send ready message: {e}")
+            # Fallback to simple say command
+            try:
+                fallback_command = "say [ATTR] Ready for commands! Type !help for available commands."
+                self.send_command(fallback_command)
+                print("[WS] Sent fallback ready message to chat")
+            except Exception as e2:
+                print(f"[WS ERROR] Failed to send fallback ready message: {e2}")
 
     def connect(self):
         """Connect to WebSocket"""
