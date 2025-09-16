@@ -352,7 +352,7 @@ class CommandHandler:
                 {"text": "Admin commands: ", "color": "white"},
                 {"text": "!unban <player>", "color": "gold"},
                 {"text": ", ", "color": "white"},
-                {"text": "!addtime <player> <hours>", "color": "gold"},
+                {"text": "!addtime <player> <minutes>", "color": "gold"},
                 {"text": ", ", "color": "white"},
                 {"text": "!resettime <player>", "color": "gold"},
             ],
@@ -408,14 +408,14 @@ class CommandHandler:
             return
 
         if len(args) < 2:
-            self.send_command(f"tell {username} Usage: !addtime <player> <hours>")
+            self.send_command(f"tell {username} Usage: !addtime <player> <minutes>")
             return
 
         target_player = args[0]
         try:
-            hours_to_add = float(args[1])
+            minutes_to_add = float(args[1])
         except ValueError:
-            self.send_command(f"tell {username} Invalid hours value. Must be a number.")
+            self.send_command(f"tell {username} Invalid minutes value. Must be a number.")
             return
 
         # Load sessions and add time
@@ -425,18 +425,18 @@ class CommandHandler:
                 "rollover_time", 0
             )
             session_manager.sessions[target_player]["rollover_time"] = (
-                current_rollover + (hours_to_add * 3600)
+                current_rollover + (minutes_to_add * 60)
             )
             session_manager.save_sessions()
 
             # Announce the time addition
-            wording = ["Added", "to"] if hours_to_add > 0 else ["Removed", "from"]
+            wording = ["Added", "to"] if minutes_to_add > 0 else ["Removed", "from"]
             tellraw_json = {
                 "text": "",
                 "extra": [
                     {"text": f"[ADMIN {username}] ", "color": "red"},
                     {"text": f"{wording[0]} ", "color": "white"},
-                    {"text": f"{hours_to_add} hours", "color": "green", "bold": True},
+                    {"text": f"{minutes_to_add} minutes", "color": "green", "bold": True},
                     {"text": f" {wording[1]} ", "color": "white"},
                     {"text": target_player, "color": "yellow", "bold": True},
                 ],
@@ -445,16 +445,16 @@ class CommandHandler:
 
             # Notify the target player if they're online
             if session_manager.sessions[target_player].get("online", False):
-                if hours_to_add > 0:
+                if minutes_to_add > 0:
                     self.send_command(
-                        f"tell {target_player} An admin has granted you {hours_to_add} extra hours!"
+                        f"tell {target_player} An admin has granted you {minutes_to_add} extra minutes!"
                     )
                 else:
                     self.send_command(
-                        f"tell {target_player} An admin has removed {hours_to_add} hours from your playtime!"
+                        f"tell {target_player} An admin has removed {minutes_to_add} minutes from your playtime!"
                     )
 
-            print(f"[ADMIN] {username} added {hours_to_add} hours to {target_player}")
+            print(f"[ADMIN] {username} added {minutes_to_add} minutes to {target_player}")
         else:
             self.send_command(
                 f"tell {username} Player {target_player} not found in session data"
